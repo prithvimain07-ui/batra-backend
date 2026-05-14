@@ -25,6 +25,22 @@ app.use(cors({
   credentials: true
 }));
 
+app.get("/test-mail", async (req, res) => {
+  try {
+    let info = await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: "Test Email",
+      text: "Hello from server"
+    });
+
+    res.json({ ok: true, id: info.messageId });
+
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
 // =========================
 // HEALTH CHECK (IMPORTANT FOR RENDER)
 // =========================
