@@ -113,19 +113,28 @@ app.post("/subscribe", async (req, res) => {
       return res.status(400).json({ message: "Email required" });
     }
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: "New Subscriber",
-      html: `<p>New subscriber: ${email}</p>`
-    });
+    // Send emails safely without crashing API
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.EMAIL_USER,
+        subject: "New Subscriber",
+        html: `<p>${email}</p>`
+      });
+    } catch (mailErr) {
+      console.log("Admin email failed:", mailErr.message);
+    }
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Subscribed Successfully",
-      html: `<h2>Thanks for subscribing!</h2>`
-    });
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Subscribed Successfully",
+        html: `<h2>Thanks for subscribing</h2>`
+      });
+    } catch (mailErr) {
+      console.log("User email failed:", mailErr.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -133,10 +142,10 @@ app.post("/subscribe", async (req, res) => {
     });
 
   } catch (err) {
-    console.log(err);
+    console.log("Subscribe crash:", err);
     return res.status(500).json({
       success: false,
-      message: "Subscription Failed"
+      message: "Server error"
     });
   }
 });
