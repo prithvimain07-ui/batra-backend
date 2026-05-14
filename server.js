@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const User = require("./createUser");
@@ -7,8 +9,24 @@ const nodemailer = require("nodemailer");
 
 const app = express();
 
+
+// ==========================
+// MIDDLEWARE
+// ==========================
+
 app.use(express.json());
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "https://batrahedge.netlify.app"
+  ],
+
+  methods: ["GET", "POST", "OPTIONS"],
+
+  credentials: true
+}));
 
 
 // ==========================
@@ -16,8 +34,19 @@ app.use(cors());
 // ==========================
 
 mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err) => console.log(err));
+
+.then(() => {
+
+  console.log("MongoDB Connected Successfully");
+
+})
+
+.catch((err) => {
+
+  console.log("MongoDB Connection Error:");
+  console.log(err);
+
+});
 
 
 // ==========================
@@ -25,11 +54,35 @@ mongoose.connect(process.env.MONGO_URL)
 // ==========================
 
 const transporter = nodemailer.createTransport({
+
   service: "gmail",
+
   auth: {
+
     user: process.env.EMAIL_USER,
+
     pass: process.env.EMAIL_PASS
+
   }
+
+});
+
+
+// VERIFY EMAIL CONNECTION
+
+transporter.verify(function(error, success) {
+
+  if (error) {
+
+    console.log("Email Error:");
+    console.log(error);
+
+  } else {
+
+    console.log("Email Server Ready");
+
+  }
+
 });
 
 
@@ -45,7 +98,9 @@ let otpStore = {};
 // ==========================
 
 app.get("/", (req, res) => {
-  res.send("Server Running Successfully");
+
+  res.send("Batra Hedge Backend Running");
+
 });
 
 
@@ -59,38 +114,55 @@ app.post("/createUser", async (req, res) => {
 
     const { name, email, password } = req.body;
 
-    // CHECK IF USER EXISTS
+    // CHECK EXISTING USER
+
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
+
       return res.status(400).json({
         message: "User already exists"
       });
+
     }
 
     // HASH PASSWORD
-    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
 
     // CREATE USER
+
     const newUser = new User({
+
       name,
       email,
       password: hashedPassword
+
     });
 
     // SAVE USER
+
     await newUser.save();
 
     res.json({
+
       message: "User Created Successfully"
+
     });
 
-  } catch (error) {
+  }
+
+  catch (error) {
 
     console.log(error);
 
     res.status(500).json({
+
       message: "Server Error"
+
     });
 
   }
@@ -109,40 +181,58 @@ app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     // FIND USER
+
     const user = await User.findOne({ email });
 
-    // USER NOT FOUND
     if (!user) {
+
       return res.status(404).json({
+
         message: "User not found"
+
       });
+
     }
 
     // CHECK PASSWORD
+
     const isMatch = await bcrypt.compare(
+
       password,
       user.password
+
     );
 
-    // WRONG PASSWORD
     if (!isMatch) {
+
       return res.status(401).json({
+
         message: "Incorrect Password"
+
       });
+
     }
 
-    // LOGIN SUCCESS
+    // SUCCESS LOGIN
+
     res.json({
+
       message: "Login Successful",
+
       name: user.name
+
     });
 
-  } catch (error) {
+  }
+
+  catch (error) {
 
     console.log(error);
 
     res.status(500).json({
+
       message: "Server Error"
+
     });
 
   }
@@ -161,26 +251,39 @@ app.post("/sendOTP", async (req, res) => {
     const { email } = req.body;
 
     // CHECK USER
+
     const user = await User.findOne({ email });
 
     if (!user) {
+
       return res.status(404).json({
+
         message: "User not found"
+
       });
+
     }
 
     // GENERATE OTP
+
     const otp = Math.floor(
+
       100000 + Math.random() * 900000
+
     );
 
-    // SAVE OTP WITH EXPIRATION
+    // STORE OTP
+
     otpStore[email] = {
+
       otp: otp,
+
       expiresAt: Date.now() + 10 * 60 * 1000
+
     };
 
     // SEND EMAIL
+
     await transporter.sendMail({
 
       from: process.env.EMAIL_USER,
@@ -190,7 +293,9 @@ app.post("/sendOTP", async (req, res) => {
       subject: "Batra Hedge Password Reset OTP",
 
       html: `
+
         <div style="font-family: Arial; padding: 20px;">
+
           <h2>Batra Hedge Password Reset</h2>
 
           <p>Your OTP is:</p>
@@ -206,20 +311,29 @@ app.post("/sendOTP", async (req, res) => {
           <p>
             Do not share this OTP with anyone.
           </p>
+
         </div>
+
       `
+
     });
 
     res.json({
+
       message: "OTP Sent Successfully"
+
     });
 
-  } catch (error) {
+  }
+
+  catch (error) {
 
     console.log(error);
 
     res.status(500).json({
+
       message: "Server Error"
+
     });
 
   }
@@ -235,59 +349,103 @@ app.post("/resetPassword", async (req, res) => {
 
   try {
 
-    const { email, otp, newPassword } = req.body;
+    const {
 
-    // CHECK IF OTP EXISTS
+      email,
+      otp,
+      newPassword
+
+    } = req.body;
+
+    // OTP EXISTS?
+
     if (!otpStore[email]) {
+
       return res.status(400).json({
+
         message: "OTP not found or expired"
+
       });
+
     }
 
-    // CHECK IF OTP EXPIRED
-    if (Date.now() > otpStore[email].expiresAt) {
+    // OTP EXPIRED?
+
+    if (
+
+      Date.now() > otpStore[email].expiresAt
+
+    ) {
 
       delete otpStore[email];
 
       return res.status(400).json({
+
         message: "OTP has expired"
+
       });
+
     }
 
-    // CHECK OTP MATCH
-    if (otpStore[email].otp !== Number(otp)) {
+    // OTP MATCH?
+
+    if (
+
+      otpStore[email].otp !== Number(otp)
+
+    ) {
+
       return res.status(400).json({
+
         message: "Invalid OTP"
+
       });
+
     }
 
-    // HASH NEW PASSWORD
+    // HASH PASSWORD
+
     const hashedPassword = await bcrypt.hash(
+
       newPassword,
       10
+
     );
 
     // UPDATE PASSWORD
+
     await User.updateOne(
+
       { email },
+
       {
+
         password: hashedPassword
+
       }
+
     );
 
     // DELETE OTP
+
     delete otpStore[email];
 
     res.json({
+
       message: "Password Reset Successful"
+
     });
 
-  } catch (error) {
+  }
+
+  catch (error) {
 
     console.log(error);
 
     res.status(500).json({
+
       message: "Server Error"
+
     });
 
   }
@@ -302,5 +460,7 @@ app.post("/resetPassword", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
+
   console.log(`Server running on port ${PORT}`);
+
 });
