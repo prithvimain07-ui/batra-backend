@@ -2,17 +2,18 @@ require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
-const User = require("./createUser");
 const bcrypt = require("bcrypt");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
 
+const User = require("./createUser");
+
 const app = express();
 
 
-// ==========================
+// ======================================================
 // MIDDLEWARE
-// ==========================
+// ======================================================
 
 app.use(express.json());
 
@@ -22,16 +23,14 @@ app.use(cors({
     "http://localhost:5500",
     "https://batrahedge.netlify.app"
   ],
-
   methods: ["GET", "POST", "OPTIONS"],
-
   credentials: true
 }));
 
 
-// ==========================
+// ======================================================
 // CONNECT MONGODB ATLAS
-// ==========================
+// ======================================================
 
 mongoose.connect(process.env.MONGO_URL)
 
@@ -49,9 +48,9 @@ mongoose.connect(process.env.MONGO_URL)
 });
 
 
-// ==========================
+// ======================================================
 // EMAIL CONFIG
-// ==========================
+// ======================================================
 
 const transporter = nodemailer.createTransport({
 
@@ -60,7 +59,6 @@ const transporter = nodemailer.createTransport({
   auth: {
 
     user: process.env.EMAIL_USER,
-
     pass: process.env.EMAIL_PASS
 
   }
@@ -68,9 +66,11 @@ const transporter = nodemailer.createTransport({
 });
 
 
-// VERIFY EMAIL CONNECTION
+// ======================================================
+// VERIFY EMAIL SERVER
+// ======================================================
 
-transporter.verify(function(error, success) {
+transporter.verify((error, success) => {
 
   if (error) {
 
@@ -86,27 +86,27 @@ transporter.verify(function(error, success) {
 });
 
 
-// ==========================
+// ======================================================
 // OTP STORAGE
-// ==========================
+// ======================================================
 
 let otpStore = {};
 
 
-// ==========================
+// ======================================================
 // HOME ROUTE
-// ==========================
+// ======================================================
 
 app.get("/", (req, res) => {
 
-  res.send("Batra Hedge Backend Running");
+  res.send("Batra Hedge Backend Running Successfully");
 
 });
 
 
-// ==========================
+// ======================================================
 // CREATE USER API
-// ==========================
+// ======================================================
 
 app.post("/createUser", async (req, res) => {
 
@@ -121,19 +121,18 @@ app.post("/createUser", async (req, res) => {
     if (existingUser) {
 
       return res.status(400).json({
+
         message: "User already exists"
+
       });
 
     }
 
     // HASH PASSWORD
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10
-    );
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // CREATE USER
+    // CREATE NEW USER
 
     const newUser = new User({
 
@@ -147,7 +146,7 @@ app.post("/createUser", async (req, res) => {
 
     await newUser.save();
 
-    res.json({
+    res.status(201).json({
 
       message: "User Created Successfully"
 
@@ -157,6 +156,7 @@ app.post("/createUser", async (req, res) => {
 
   catch (error) {
 
+    console.log("Create User Error:");
     console.log(error);
 
     res.status(500).json({
@@ -170,9 +170,9 @@ app.post("/createUser", async (req, res) => {
 });
 
 
-// ==========================
+// ======================================================
 // LOGIN API
-// ==========================
+// ======================================================
 
 app.post("/login", async (req, res) => {
 
@@ -213,12 +213,11 @@ app.post("/login", async (req, res) => {
 
     }
 
-    // SUCCESS LOGIN
+    // LOGIN SUCCESS
 
-    res.json({
+    res.status(200).json({
 
       message: "Login Successful",
-
       name: user.name
 
     });
@@ -227,6 +226,7 @@ app.post("/login", async (req, res) => {
 
   catch (error) {
 
+    console.log("Login Error:");
     console.log(error);
 
     res.status(500).json({
@@ -240,9 +240,9 @@ app.post("/login", async (req, res) => {
 });
 
 
-// ==========================
+// ======================================================
 // SEND OTP API
-// ==========================
+// ======================================================
 
 app.post("/sendOTP", async (req, res) => {
 
@@ -277,7 +277,6 @@ app.post("/sendOTP", async (req, res) => {
     otpStore[email] = {
 
       otp: otp,
-
       expiresAt: Date.now() + 10 * 60 * 1000
 
     };
@@ -318,7 +317,7 @@ app.post("/sendOTP", async (req, res) => {
 
     });
 
-    res.json({
+    res.status(200).json({
 
       message: "OTP Sent Successfully"
 
@@ -328,6 +327,7 @@ app.post("/sendOTP", async (req, res) => {
 
   catch (error) {
 
+    console.log("Send OTP Error:");
     console.log(error);
 
     res.status(500).json({
@@ -341,9 +341,9 @@ app.post("/sendOTP", async (req, res) => {
 });
 
 
-// ==========================
+// ======================================================
 // RESET PASSWORD API
-// ==========================
+// ======================================================
 
 app.post("/resetPassword", async (req, res) => {
 
@@ -357,7 +357,7 @@ app.post("/resetPassword", async (req, res) => {
 
     } = req.body;
 
-    // OTP EXISTS?
+    // CHECK OTP EXISTS
 
     if (!otpStore[email]) {
 
@@ -369,7 +369,7 @@ app.post("/resetPassword", async (req, res) => {
 
     }
 
-    // OTP EXPIRED?
+    // CHECK OTP EXPIRY
 
     if (
 
@@ -387,7 +387,7 @@ app.post("/resetPassword", async (req, res) => {
 
     }
 
-    // OTP MATCH?
+    // CHECK OTP MATCH
 
     if (
 
@@ -403,7 +403,7 @@ app.post("/resetPassword", async (req, res) => {
 
     }
 
-    // HASH PASSWORD
+    // HASH NEW PASSWORD
 
     const hashedPassword = await bcrypt.hash(
 
@@ -430,7 +430,7 @@ app.post("/resetPassword", async (req, res) => {
 
     delete otpStore[email];
 
-    res.json({
+    res.status(200).json({
 
       message: "Password Reset Successful"
 
@@ -440,6 +440,7 @@ app.post("/resetPassword", async (req, res) => {
 
   catch (error) {
 
+    console.log("Reset Password Error:");
     console.log(error);
 
     res.status(500).json({
@@ -453,9 +454,109 @@ app.post("/resetPassword", async (req, res) => {
 });
 
 
-// ==========================
+// ======================================================
+// NEWSLETTER SUBSCRIBE API
+// ======================================================
+
+app.post("/subscribe", async (req, res) => {
+
+  try {
+
+    const { email } = req.body;
+
+    if (!email) {
+
+      return res.status(400).json({
+
+        message: "Email is required"
+
+      });
+
+    }
+
+    // SEND EMAIL TO ADMIN
+
+    await transporter.sendMail({
+
+      from: process.env.EMAIL_USER,
+
+      to: process.env.EMAIL_USER,
+
+      subject: "New Newsletter Subscriber",
+
+      html: `
+
+        <div style="font-family: Arial; padding: 20px;">
+
+          <h2>New Newsletter Subscription</h2>
+
+          <p>
+            <strong>Email:</strong> ${email}
+          </p>
+
+        </div>
+
+      `
+
+    });
+
+    // CONFIRMATION EMAIL TO USER
+
+    await transporter.sendMail({
+
+      from: process.env.EMAIL_USER,
+
+      to: email,
+
+      subject: "Subscribed Successfully - Batra Hedge",
+
+      html: `
+
+        <div style="font-family: Arial; padding: 20px;">
+
+          <h2>Welcome to Batra Hedge Insights</h2>
+
+          <p>
+            Thank you for subscribing to our newsletter.
+          </p>
+
+          <p>
+            You will now receive the latest market insights and updates.
+          </p>
+
+        </div>
+
+      `
+
+    });
+
+    res.status(200).json({
+
+      message: "Subscribed Successfully"
+
+    });
+
+  }
+
+  catch (error) {
+
+    console.log("Subscribe Error:");
+    console.log(error);
+
+    res.status(500).json({
+
+      message: "Subscription Failed"
+
+    });
+
+  }
+
+});
+
+
+// ======================================================
 // START SERVER
-// ==========================
+// ======================================================
 
 const PORT = process.env.PORT || 3000;
 
