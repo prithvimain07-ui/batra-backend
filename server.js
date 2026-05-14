@@ -11,8 +11,11 @@ app.use(express.json());
 app.use(cors());
 
 
-// CONNECT MONGODB
-mongoose.connect("mongodb://127.0.0.1:27017/batraDB")
+// ==========================
+// CONNECT MONGODB ATLAS
+// ==========================
+
+mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log(err));
 
@@ -24,17 +27,23 @@ mongoose.connect("mongodb://127.0.0.1:27017/batraDB")
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "prithvimain07@gmail.com",
-    pass: "fkakjfblwjoumrsd"  // Your new app password (no spaces)
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
 
+// ==========================
 // OTP STORAGE
+// ==========================
+
 let otpStore = {};
 
 
+// ==========================
 // HOME ROUTE
+// ==========================
+
 app.get("/", (req, res) => {
   res.send("Server Running Successfully");
 });
@@ -165,7 +174,7 @@ app.post("/sendOTP", async (req, res) => {
       100000 + Math.random() * 900000
     );
 
-    // SAVE OTP WITH EXPIRATION (10 minutes)
+    // SAVE OTP WITH EXPIRATION
     otpStore[email] = {
       otp: otp,
       expiresAt: Date.now() + 10 * 60 * 1000
@@ -174,17 +183,30 @@ app.post("/sendOTP", async (req, res) => {
     // SEND EMAIL
     await transporter.sendMail({
 
-      from: "prithvimain07@gmail.com",
+      from: process.env.EMAIL_USER,
 
       to: email,
 
       subject: "Batra Hedge Password Reset OTP",
 
       html: `
-        <h2>Your OTP is:</h2>
-        <h1>${otp}</h1>
-        <p>This OTP will expire in 10 minutes.</p>
-        <p>Do not share this OTP with anyone.</p>
+        <div style="font-family: Arial; padding: 20px;">
+          <h2>Batra Hedge Password Reset</h2>
+
+          <p>Your OTP is:</p>
+
+          <h1 style="letter-spacing: 4px;">
+            ${otp}
+          </h1>
+
+          <p>
+            This OTP will expire in 10 minutes.
+          </p>
+
+          <p>
+            Do not share this OTP with anyone.
+          </p>
+        </div>
       `
     });
 
@@ -224,7 +246,9 @@ app.post("/resetPassword", async (req, res) => {
 
     // CHECK IF OTP EXPIRED
     if (Date.now() > otpStore[email].expiresAt) {
+
       delete otpStore[email];
+
       return res.status(400).json({
         message: "OTP has expired"
       });
@@ -271,7 +295,12 @@ app.post("/resetPassword", async (req, res) => {
 });
 
 
+// ==========================
 // START SERVER
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+// ==========================
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
